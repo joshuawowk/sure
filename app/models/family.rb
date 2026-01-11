@@ -1,5 +1,5 @@
 class Family < ApplicationRecord
-  include PlaidConnectable, SimplefinConnectable, Syncable, AutoTransferMatchable, Subscribeable
+  include PlaidConnectable, SimplefinConnectable, LunchflowConnectable, EnableBankingConnectable, Syncable, AutoTransferMatchable, Subscribeable, CoinstatsConnectable
 
   DATE_FORMATS = [
     [ "MM-DD-YYYY", "%m-%d-%Y" ],
@@ -10,7 +10,8 @@ class Family < ApplicationRecord
     [ "YYYY/MM/DD", "%Y/%m/%d" ],
     [ "MM/DD/YYYY", "%m/%d/%Y" ],
     [ "D/MM/YYYY", "%e/%m/%Y" ],
-    [ "YYYY.MM.DD", "%Y.%m.%d" ]
+    [ "YYYY.MM.DD", "%Y.%m.%d" ],
+    [ "YYYYMMDD", "%Y%m%d" ]
   ].freeze
 
   has_many :users, dependent: :destroy
@@ -33,6 +34,9 @@ class Family < ApplicationRecord
   has_many :budgets, dependent: :destroy
   has_many :budget_categories, through: :budgets
 
+  has_many :llm_usages, dependent: :destroy
+  has_many :recurring_transactions, dependent: :destroy
+
   validates :locale, inclusion: { in: I18n.available_locales.map(&:to_s) }
   validates :date_format, inclusion: { in: DATE_FORMATS.map(&:last) }
 
@@ -41,16 +45,25 @@ class Family < ApplicationRecord
     Merchant.where(id: merchant_ids)
   end
 
-  def auto_categorize_transactions_later(transactions)
-    AutoCategorizeJob.perform_later(self, transaction_ids: transactions.pluck(:id))
+  def available_merchants
+    assigned_ids = transactions.where.not(merchant_id: nil).pluck(:merchant_id).uniq
+    recently_unlinked_ids = FamilyMerchantAssociation
+      .where(family: self)
+      .recently_unlinked
+      .pluck(:merchant_id)
+    Merchant.where(id: (assigned_ids + recently_unlinked_ids).uniq)
+  end
+
+  def auto_categorize_transactions_later(transactions, rule_run_id: nil)
+    AutoCategorizeJob.perform_later(self, transaction_ids: transactions.pluck(:id), rule_run_id: rule_run_id)
   end
 
   def auto_categorize_transactions(transaction_ids)
     AutoCategorizer.new(self, transaction_ids: transaction_ids).auto_categorize
   end
 
-  def auto_detect_transaction_merchants_later(transactions)
-    AutoDetectMerchantsJob.perform_later(self, transaction_ids: transactions.pluck(:id))
+  def auto_detect_transaction_merchants_later(transactions, rule_run_id: nil)
+    AutoDetectMerchantsJob.perform_later(self, transaction_ids: transactions.pluck(:id), rule_run_id: rule_run_id)
   end
 
   def auto_detect_transaction_merchants(transaction_ids)
@@ -63,6 +76,10 @@ class Family < ApplicationRecord
 
   def income_statement
     @income_statement ||= IncomeStatement.new(self)
+  end
+
+  def investment_statement
+    @investment_statement ||= InvestmentStatement.new(self)
   end
 
   def eu?

@@ -10,8 +10,18 @@ en:
           details.
         title: Clean your data
     configurations:
+      category_import:
+        button_label: Continue
+        description: Upload a simple CSV file (like the one we generate when you
+          export your data). We'll automatically map the columns for you.
+        instructions: Select continue to parse your CSV and move on to the clean step.
       mint_import:
         date_format_label: Date format
+      rule_import:
+        description: Configure your rule import. Rules will be created or updated based
+          on the CSV data.
+        process_button: Process Rules
+        process_help: Click the button below to process your CSV and generate rule rows.
       show:
         description: Select the columns that correspond to each field in your CSV.
         title: Configure your import
@@ -23,7 +33,7 @@ en:
       mappings:
         create_account: Create account
         csv_mapping_label: "%{mapping} in CSV"
-        maybe_mapping_label: "%{mapping} in Maybe"
+        sure_mapping_label: "%{mapping} in %{product_name}"
         no_accounts: You don't have any accounts yet. Please create an account that
           we can use for (unassigned) rows in your CSV or go back to the Clean step
           and provide an account name we can use.
@@ -58,7 +68,7 @@ en:
   imports:
     empty:
       message: No imports yet.
-      new: New import
+      new: New Import
     import:
       complete: Complete
       delete: Delete
@@ -71,14 +81,19 @@ en:
       view: View
     index:
       imports: Imports
-      new: New import
-      title: Imports
+      new: New Import
+      title: Import/Export
+      exports: Exports
+      new_export: New Export
+      no_exports: No exports yet.
     new:
       description: You can manually import various types of data via CSV or use one
         of our import templates like Mint.
       import_accounts: Import accounts
+      import_categories: Import categories
       import_mint: Import from Mint
       import_portfolio: Import investments
+      import_rules: Import rules
       import_transactions: Import transactions
       resume: Resume %{type}
       sources: Sources

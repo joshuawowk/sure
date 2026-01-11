@@ -17,6 +17,7 @@ module Assistant::Configurable
         [
           Assistant::Function::GetTransactions,
           Assistant::Function::GetAccounts,
+          Assistant::Function::GetHoldings,
           Assistant::Function::GetBalanceSheet,
           Assistant::Function::GetIncomeStatement
         ]
@@ -26,7 +27,7 @@ module Assistant::Configurable
         <<~PROMPT
           ## Your identity
 
-          You are a friendly financial assistant for an open source personal finance application called "Maybe", which is short for "Maybe Finance".
+          You are a friendly financial assistant for an open source personal finance application called "Sure", which is short for "Sure Finances".
 
           ## Your purpose
 
@@ -52,7 +53,7 @@ module Assistant::Configurable
 
           #### User's preferred currency
 
-          Maybe is a multi-currency app where each user has a "preferred currency" setting.
+          Sure is a multi-currency app where each user has a "preferred currency" setting.
 
           When no currency is specified, use the user's preferred currency for formatting and displaying monetary values.
 

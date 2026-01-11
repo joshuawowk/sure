@@ -40,7 +40,14 @@
                   disable_currency: true,
                   auto_submit: true,
                   min: 0,
+                  step: "any",
+                  precision: 10,
                   disabled: @entry.linked? %>
+
+            <%= ef.select :category_id,
+                  Current.family.categories.expenses.alphabetically.map { |c| [c.name, c.id] },
+                  { include_blank: t(".no_category"), label: t(".category_label") },
+                  { data: { "auto-submit-form-target": "auto" } } %>
           <% end %>
         <% end %>
       </div>
