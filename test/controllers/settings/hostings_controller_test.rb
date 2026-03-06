@@ -9,24 +9,28 @@ class Settings::HostingsControllerTest < ActionDispatch::IntegrationTest
 
     @provider = mock
     Provider::Registry.stubs(:get_provider).with(:twelve_data).returns(@provider)
-    @usage_response = provider_success_response(
+
+    @provider.stubs(:healthy?).returns(true)
+    Provider::Registry.stubs(:get_provider).with(:yahoo_finance).returns(@provider)
+    @provider.stubs(:usage).returns(provider_success_response(
       OpenStruct.new(
         used: 10,
         limit: 100,
         utilization: 10,
         plan: "free",
       )
-    )
+    ))
   end
 
   test "cannot edit when self hosting is disabled" do
-    with_env_overrides SELF_HOSTED: "false" do
-      get settings_hosting_url
-      assert_response :forbidden
+    @provider.stubs(:usage).returns(@usage_response)
 
-      patch settings_hosting_url, params: { setting: { require_invite_for_signup: true } }
-      assert_response :forbidden
-    end
+    Rails.configuration.stubs(:app_mode).returns("managed".inquiry)
+    get settings_hosting_url
+    assert_response :forbidden
+
+    patch settings_hosting_url, params: { setting: { onboarding_state: "invite_only" } }
+    assert_response :forbidden
   end
 
   test "should get edit when self hosting is enabled" do
@@ -43,6 +47,70 @@ class Settings::HostingsControllerTest < ActionDispatch::IntegrationTest
       patch settings_hosting_url, params: { setting: { twelve_data_api_key: "1234567890" } }
 
       assert_equal "1234567890", Setting.twelve_data_api_key
+    end
+  end
+
+  test "can update onboarding state when self hosting is enabled" do
+    with_self_hosting do
+      patch settings_hosting_url, params: { setting: { onboarding_state: "invite_only" } }
+
+      assert_equal "invite_only", Setting.onboarding_state
+      assert Setting.require_invite_for_signup
+
+      patch settings_hosting_url, params: { setting: { onboarding_state: "closed" } }
+
+      assert_equal "closed", Setting.onboarding_state
+      refute Setting.require_invite_for_signup
+    end
+  end
+
+  test "can update openai access token when self hosting is enabled" do
+    with_self_hosting do
+      patch settings_hosting_url, params: { setting: { openai_access_token: "token" } }
+
+      assert_equal "token", Setting.openai_access_token
+    end
+  end
+
+  test "can update openai uri base and model together when self hosting is enabled" do
+    with_self_hosting do
+      patch settings_hosting_url, params: { setting: { openai_uri_base: "https://api.example.com/v1", openai_model: "gpt-4" } }
+
+      assert_equal "https://api.example.com/v1", Setting.openai_uri_base
+      assert_equal "gpt-4", Setting.openai_model
+    end
+  end
+
+  test "cannot update openai uri base without model when self hosting is enabled" do
+    with_self_hosting do
+      Setting.openai_model = ""
+
+      patch settings_hosting_url, params: { setting: { openai_uri_base: "https://api.example.com/v1" } }
+
+      assert_response :unprocessable_entity
+      assert_match(/OpenAI model is required/, flash[:alert])
+      assert Setting.openai_uri_base.blank?, "Expected openai_uri_base to remain blank after failed validation"
+    end
+  end
+
+  test "can update openai model alone when self hosting is enabled" do
+    with_self_hosting do
+      patch settings_hosting_url, params: { setting: { openai_model: "gpt-4" } }
+
+      assert_equal "gpt-4", Setting.openai_model
+    end
+  end
+
+  test "cannot clear openai model when custom uri base is set" do
+    with_self_hosting do
+      Setting.openai_uri_base = "https://api.example.com/v1"
+      Setting.openai_model = "gpt-4"
+
+      patch settings_hosting_url, params: { setting: { openai_model: "" } }
+
+      assert_response :unprocessable_entity
+      assert_match(/OpenAI model is required/, flash[:alert])
+      assert_equal "gpt-4", Setting.openai_model
     end
   end
 
@@ -66,6 +134,100 @@ class Settings::HostingsControllerTest < ActionDispatch::IntegrationTest
     assert_not Security::Price.exists?(security_price.id)
     assert_not Holding.exists?(holding.id)
     assert_not Balance.exists?(account_balance.id)
+  end
+
+  test "can update assistant type to external" do
+    with_self_hosting do
+      assert_equal "builtin", users(:family_admin).family.assistant_type
+
+      patch settings_hosting_url, params: { family: { assistant_type: "external" } }
+
+      assert_redirected_to settings_hosting_url
+      assert_equal "external", users(:family_admin).family.reload.assistant_type
+    end
+  end
+
+  test "ignores invalid assistant type values" do
+    with_self_hosting do
+      patch settings_hosting_url, params: { family: { assistant_type: "hacked" } }
+
+      assert_redirected_to settings_hosting_url
+      assert_equal "builtin", users(:family_admin).family.reload.assistant_type
+    end
+  end
+
+  test "ignores assistant type update when ASSISTANT_TYPE env is set" do
+    with_self_hosting do
+      with_env_overrides("ASSISTANT_TYPE" => "external") do
+        patch settings_hosting_url, params: { family: { assistant_type: "external" } }
+
+        assert_redirected_to settings_hosting_url
+        # DB value should NOT change when env override is active
+        assert_equal "builtin", users(:family_admin).family.reload.assistant_type
+      end
+    end
+  end
+
+  test "can update external assistant settings" do
+    with_self_hosting do
+      patch settings_hosting_url, params: { setting: {
+        external_assistant_url: "https://agent.example.com/v1/chat",
+        external_assistant_token: "my-secret-token",
+        external_assistant_agent_id: "finance-bot"
+      } }
+
+      assert_redirected_to settings_hosting_url
+      assert_equal "https://agent.example.com/v1/chat", Setting.external_assistant_url
+      assert_equal "my-secret-token", Setting.external_assistant_token
+      assert_equal "finance-bot", Setting.external_assistant_agent_id
+    end
+  ensure
+    Setting.external_assistant_url = nil
+    Setting.external_assistant_token = nil
+    Setting.external_assistant_agent_id = nil
+  end
+
+  test "does not overwrite token with masked placeholder" do
+    with_self_hosting do
+      Setting.external_assistant_token = "real-secret"
+
+      patch settings_hosting_url, params: { setting: { external_assistant_token: "********" } }
+
+      assert_equal "real-secret", Setting.external_assistant_token
+    end
+  ensure
+    Setting.external_assistant_token = nil
+  end
+
+  test "disconnect external assistant clears settings and resets type" do
+    with_self_hosting do
+      with_env_overrides("EXTERNAL_ASSISTANT_URL" => nil, "EXTERNAL_ASSISTANT_TOKEN" => nil) do
+        Setting.external_assistant_url = "https://agent.example.com/v1/chat"
+        Setting.external_assistant_token = "token"
+        Setting.external_assistant_agent_id = "finance-bot"
+        users(:family_admin).family.update!(assistant_type: "external")
+
+        delete disconnect_external_assistant_settings_hosting_url
+
+        assert_redirected_to settings_hosting_url
+        assert_not Assistant::External.configured?
+        assert_equal "builtin", users(:family_admin).family.reload.assistant_type
+      end
+    end
+  ensure
+    Setting.external_assistant_url = nil
+    Setting.external_assistant_token = nil
+    Setting.external_assistant_agent_id = nil
+  end
+
+  test "disconnect external assistant requires admin" do
+    with_self_hosting do
+      sign_in users(:family_member)
+      delete disconnect_external_assistant_settings_hosting_url
+
+      assert_redirected_to settings_hosting_url
+      assert_equal I18n.t("settings.hostings.not_authorized"), flash[:alert]
+    end
   end
 
   test "can clear data only when admin" do

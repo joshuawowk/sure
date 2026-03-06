@@ -1,10 +1,14 @@
 class Settings::ProfilesController < ApplicationController
-  layout "settings"
+  layout :layout_for_settings_profile
 
   def show
     @user = Current.user
     @users = Current.family.users.order(:created_at)
     @pending_invitations = Current.family.invitations.pending
+    @breadcrumbs = [
+      [ "Home", root_path ],
+      [ "Profile Info", nil ]
+    ]
   end
 
   def destroy
@@ -32,4 +36,10 @@ class Settings::ProfilesController < ApplicationController
 
     redirect_to settings_profile_path
   end
+
+  private
+
+    def layout_for_settings_profile
+      Current.user&.ui_layout_intro? ? "application" : "settings"
+    end
 end

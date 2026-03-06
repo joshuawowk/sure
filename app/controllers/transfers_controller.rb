@@ -5,6 +5,7 @@ class TransfersController < ApplicationController
 
   def new
     @transfer = Transfer.new
+    @from_account_id = params[:from_account_id]
   end
 
   def show
@@ -16,7 +17,7 @@ class TransfersController < ApplicationController
       family: Current.family,
       source_account_id: transfer_params[:from_account_id],
       destination_account_id: transfer_params[:to_account_id],
-      date: transfer_params[:date],
+      date: Date.parse(transfer_params[:date]),
       amount: transfer_params[:amount].to_d
     ).create
 
@@ -54,7 +55,7 @@ class TransfersController < ApplicationController
       @transfer = Transfer
                     .where(id: params[:id])
                     .where(inflow_transaction_id: Current.family.transactions.select(:id))
-                    .first
+                    .first!
     end
 
     def transfer_params
