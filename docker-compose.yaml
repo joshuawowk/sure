@@ -13,6 +13,10 @@ services:
       SELF_HOSTED: "true"
       RAILS_FORCE_SSL: "false"
       RAILS_ASSUME_SSL: "false"
+      RAILS_LOG_LEVEL: ${RAILS_LOG_LEVEL:-warn}
+      ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY: ${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY}
+      ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY: ${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}
+      ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: ${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}
       DB_HOST: db
       DB_PORT: 5432
       REDIS_URL: redis://redis:6379/1
@@ -36,7 +40,6 @@ services:
         condition: service_healthy
     networks:
       - sure_net
-      - npm_net
 
   worker:
     image: ghcr.io/we-promise/sure:latest
@@ -54,6 +57,10 @@ services:
       SELF_HOSTED: "true"
       RAILS_FORCE_SSL: "false"
       RAILS_ASSUME_SSL: "false"
+      RAILS_LOG_LEVEL: ${RAILS_LOG_LEVEL:-warn}
+      ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY: ${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY}
+      ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY: ${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}
+      ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: ${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}
       DB_HOST: db
       DB_PORT: 5432
       REDIS_URL: redis://redis:6379/1
@@ -123,8 +130,6 @@ volumes:
 networks:
   sure_net:
     driver: bridge
-  npm_net:
-    external: true
 
 # ===========================================================================
 # Example Docker Compose file
