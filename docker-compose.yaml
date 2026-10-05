@@ -27,6 +27,25 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: postgres
+      # --- OIDC via authentik -------------------------------------------------
+      # Values live in the Portainer stack environment, not in git. Every default
+      # below preserves current behaviour, so merging this changes nothing until
+      # those variables are set.
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
+      OIDC_BUTTON_LABEL: ${OIDC_BUTTON_LABEL:-Sign in with authentik}
+      # link_only: an SSO login may only attach to an EXISTING account. Without it
+      # a mismatched email silently creates a second user with an empty Family and
+      # the existing financial data appears to vanish.
+      AUTH_JIT_MODE: ${AUTH_JIT_MODE:-link_only}
+      ALLOWED_OIDC_DOMAINS: ${ALLOWED_OIDC_DOMAINS:-}
+      # Flip AUTH_LOCAL_LOGIN_ENABLED to false in Portainer only AFTER an SSO login
+      # has been confirmed to link to the existing account. The admin override
+      # admits super_admin only.
+      AUTH_LOCAL_LOGIN_ENABLED: ${AUTH_LOCAL_LOGIN_ENABLED:-true}
+      AUTH_LOCAL_ADMIN_OVERRIDE_ENABLED: ${AUTH_LOCAL_ADMIN_OVERRIDE_ENABLED:-true}
     # labels:
     #   homepage.group: "Sure"
     #   homepage.name: "Sure Web"
